@@ -107,9 +107,25 @@ Two other things that look like the same bug but are not: an ancestor `filter`
 is harmless (this build uses one on each leaf to carry the key light), and so is
 backdrop content that overflows the veil's own box.
 
+One more, at the other end of the range. At exactly 180° every fold transform is
+identity and the blur radii are all zero, but Chrome still composites the twelve
+no-op `blur(0px)` layers and the two abutting leaves, and the antialiased edges
+leave a hairline down the hinge — visible at 180° and at no other angle. Since a
+flat foldable is not two panels, the demo stops drawing it as two: below half a
+degree of tilt the veils, the crease, the lighting filters and the transforms are
+all dropped, and one leaf is stretched to carry the whole display.
+
+```css
+.stage.flat .veil, .stage.flat .crease { display: none }
+.stage.flat .leaf { filter: none; transform: none }
+.stage.flat [data-side="l"] .crop { right: -100% }
+.stage.flat [data-side="r"] .crop { display: none }
+```
+
+
 ## Credits
 
 Photograph by [George Cox](https://unsplash.com/photos/NFpvXe7sSJM) via
 Unsplash, embedded in the page as a data URI so `index.html` stands alone.
 
-Built by Pawel Mikolajek · [humanmade.com](https://humanmade.com)
+Built by Paweł Mikołajek · [humanmade.com](https://humanmade.com)

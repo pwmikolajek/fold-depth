@@ -92,12 +92,19 @@
 [data-side="r"] { left: 50%; transform-origin: 0 50%;    transform: rotateY(calc(-1 * var(--phi)));
                   --lit: calc(.72 * cos(var(--phi)) + .48 * sin(var(--phi))) }
 
-.crop {                               /* a plain rectangular clip */
+.crop {                               /* a plain rectangular clip. The two
+                                         halves overlap by half a pixel at the
+                                         hinge: abutting clipped layers leave an
+                                         antialiased seam, and since both sides
+                                         carry the same display content the
+                                         overlap is invisible. */
   position: absolute;
   inset: 0;
   overflow: hidden;
   user-select: none;
 }
+[data-side="l"] .crop { right: -.5px }
+[data-side="r"] .crop { left:  -.5px }
 
 .face {
   position: absolute;
@@ -112,13 +119,15 @@
 [data-side="l"] .face { left: 0;  right: calc(-1 * var(--R)) }
 [data-side="r"] .face { right: 0; left:  calc(-1 * var(--R)) }
 
-.plate {                              /* the full display, cropped by the half */
+.plate {                              /* the whole display, in display units:
+                                         1em == 1% of it, so this is exact and
+                                         survives the face overhanging --R */
   position: absolute;
   inset-block: 0;
-  width: 200%;
+  width: 100em;
 }
 [data-side="l"] .plate { left: 0 }
-[data-side="r"] .plate { left: -100% }
+[data-side="r"] .plate { left: calc(var(--R) - 50em) }
 
 .veil {
   position: absolute;
@@ -150,6 +159,32 @@
 .stage:has(#dome:checked) [data-side="r"] .veil {
   --field: radial-gradient(50em 88% at var(--R) 50%, #0000 var(--a), #000 var(--b)) }
 
+/* Flat means no defocus at all. Twelve blur(0px) layers still get
+   composited, and each one leaves an antialiased edge where its backdrop
+   root is cropped at the hinge - which is why a hairline appeared at
+   exactly 180 and nowhere else. Below half a degree the blur is already
+   sub-pixel, so dropping the veils there is invisible and free. */
+.stage.flat .veil,
+.stage.flat .crease { display: none }
+
+/* Flat is not two panels any more, so stop drawing it as two. Every fold
+   transform is identity here and the lighting filter is brightness(1), so
+   dropping them costs nothing. Then the left leaf is stretched to carry
+   the whole display and the right one's copy is hidden: with no boundary
+   at the hinge there is no edge to antialias, which is the hairline that
+   showed up at exactly 180 and at no other angle. */
+.stage.flat .leaf { filter: none; transform: none }
+.stage.flat .book { transform: none; transform-style: flat }
+
+.stage.flat [data-side="l"] .crop   { right: -100% }
+.stage.flat [data-side="l"] .face   { right: 0 }
+.stage.flat [data-side="l"] .metal  { right: calc(-50em - .9em);  border-radius: calc(var(--R) + .9em) }
+.stage.flat [data-side="l"] .gasket { right: calc(-50em - .12em); border-radius: calc(var(--R) + .12em) }
+.stage.flat [data-side="r"] .crop,
+.stage.flat [data-side="r"] .metal,
+.stage.flat [data-side="r"] .gasket { display: none }
+
+
 /* Firefox < 103 and friends: keep the falloff, lose the blur */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .veil { background: rgb(7 10 16 / calc(.14 * var(--depth))) }
@@ -168,7 +203,7 @@
   --focus: #f0b25c;          /* golden hour, sampled from the wallpaper */
 
   /* the open display, sized to what the chrome leaves behind */
-  --w: min(86vw, max(260px, min(calc((100svh - 390px) * 1.25), 1040px)));
+  --w: min(42vw, max(300px, min(calc((100svh - 450px) * 1.25), 900px)));
 }
 
 * { box-sizing: border-box }
@@ -209,20 +244,34 @@ body {
 
 .rig {
   margin-block: auto;
-  width: var(--w);
+  width: min(96vw, calc(var(--w) + 50vw + clamp(20px, 2.2vw, 40px)));
   display: flex;
   flex-direction: column;
-  gap: clamp(16px, 2.6svh, 30px);
+  gap: clamp(14px, 2.2svh, 26px);
+}
+
+.cols {                               /* the phone and its instruments on the
+                                         left, the CSS it generates on the
+                                         right */
+  display: grid;
+  grid-template-columns: var(--w) 50vw;
+  gap: clamp(20px, 2.2vw, 40px);
+  align-items: start;
+}
+.col {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(14px, 2.2svh, 26px);
+  min-width: 0;
 }
 
 /* ─── header ─────────────────────────────────────────────────────────── */
 
 .head {
   display: grid;
-  grid-template-columns: auto minmax(0, 46ch);
+  grid-template-columns: var(--w) 50vw;
   align-items: end;
-  justify-content: space-between;
-  gap: 8px 32px;
+  gap: 8px clamp(20px, 2.2vw, 40px);
   padding-bottom: 14px;
   border-bottom: 1px solid var(--line);
 }
@@ -268,14 +317,14 @@ h1 {
   background: conic-gradient(from 202deg,
     #61666e, #d9dee5 11%, #878e97 25%, #f4f7fa 37%,
     #767d86 51%, #ccd3da 65%, #666c74 79%, #e7ebf0 91%, #61666e);
-  background-size: 200% 100%;
+  background-size: calc(100em + 1.8em) 100%;
   box-shadow:
     0 3.4em 7em -2em rgb(0 0 0 / .8),
     0 .8em 2em -.8em rgb(0 0 0 / .55);
 }
 [data-side="l"] .metal { right: 0; background-position: 0 0;
   border-radius: calc(var(--R) + .9em) 0 0 calc(var(--R) + .9em) }
-[data-side="r"] .metal { left: 0; background-position: 100% 0;
+[data-side="r"] .metal { left: 0; background-position: calc(-50em - .9em) 0;
   border-radius: 0 calc(var(--R) + .9em) calc(var(--R) + .9em) 0 }
 
 .gasket {                              /* the dark line where glass meets metal */
@@ -301,9 +350,9 @@ h1 {
   pointer-events: none;
   opacity: calc(var(--depth) * 1.25);   /* gone by the time it lies flat */
 }
-[data-side="l"] .crease { right: 0;
+[data-side="l"] .crease { right: var(--R);
   background: linear-gradient(to right, #0000, rgb(4 7 12 / .34) 78%, rgb(255 255 255 / .16)) }
-[data-side="r"] .crease { left: 0;
+[data-side="r"] .crease { left: var(--R);
   background: linear-gradient(to left, #0000, rgb(4 7 12 / .3) 78%, rgb(4 7 12 / .16)) }
 
 .gloss {                               /* front surface of the glass */
@@ -313,11 +362,11 @@ h1 {
   background:
     radial-gradient(120% 88% at 16% -12%, rgb(255 255 255 / .15), #0000 46%),
     radial-gradient(92% 70% at 94% 110%, rgb(255 255 255 / .07), #0000 52%);
-  background-size: 200% 100%;
+  background-size: 100em 100%;
   box-shadow: inset 0 1px 0 rgb(255 255 255 / .2);
 }
 [data-side="l"] .gloss { background-position: 0 0 }
-[data-side="r"] .gloss { background-position: 100% 0 }
+[data-side="r"] .gloss { background-position: calc(var(--R) - 50em) 0 }
 
 /* ─── screen contents (SF, because it is a phone screen) ─────────────── */
 
@@ -413,8 +462,6 @@ h1 {
 /* ─── instrument rail ────────────────────────────────────────────────── */
 
 .rail {
-  width: min(86vw, max(100%, 600px));
-  align-self: center;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -483,14 +530,15 @@ input[type=range]:focus-visible { outline: 2px solid var(--focus); outline-offse
 .ghost:hover { background: rgb(240 178 92 / .16); border-color: rgb(240 178 92 / .55) }
 .ghost:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px }
 
-/* the display is sized from the viewport height, so the header follows it */
-@media (max-height: 870px) {
+/* one column when there is not room for two */
+@media (max-width: 1000px) {
+  :root { --w: min(86vw, max(240px, calc((100svh - 300px) * 1.2))) }
+  .cols { grid-template-columns: minmax(0, 1fr) }
   .head { grid-template-columns: 1fr }
+  .snip { max-height: 56svh }
 }
 
 @media (max-width: 640px) {
-  :root { --w: min(86vw, max(240px, calc((100svh - 420px) * 1.25))) }
-  .head { grid-template-columns: 1fr }
   .ghost { margin-left: 0 }
 }
 
@@ -498,14 +546,14 @@ input[type=range]:focus-visible { outline: 2px solid var(--focus); outline-offse
 
 .grip {
   position: absolute;
-  top: 24%; height: 52%;
+  top: 20%; height: 60%;
   width: var(--grip);
   cursor: ns-resize;
   touch-action: none;
   -webkit-tap-highlight-color: transparent;
 }
-[data-side="l"] .grip { left:  calc(var(--grip) / -2) }
-[data-side="r"] .grip { right: calc(var(--grip) / -2) }
+[data-side="l"] .grip { left:  calc(-1 * var(--grip)) }
+[data-side="r"] .grip { right: calc(-1 * var(--grip)) }
 .grip::before {                        /* knurling, so the rim reads as a handle */
   content: "";
   position: absolute;
@@ -514,8 +562,8 @@ input[type=range]:focus-visible { outline: 2px solid var(--focus); outline-offse
   width: 1.05em;
   height: 54%;
   border-radius: 1em;
-  background: repeating-linear-gradient(rgb(10 14 20 / .6) 0 .16em, #0000 .16em .46em);
-  opacity: .4;
+  background: repeating-linear-gradient(rgb(200 214 234 / .85) 0 .16em, #0000 .16em .5em);
+  opacity: .5;
   transition: opacity .18s;
 }
 .grip:hover::before { opacity: .95 }
@@ -523,14 +571,6 @@ body.folding, body.folding .grip { cursor: ns-resize }
 body.folding { user-select: none }
 
 /* ─── the snippet this state generates ───────────────────────────────── */
-
-.sheet {
-  position: relative;
-  display: grid;
-  justify-items: center;
-  padding: 0 16px clamp(30px, 6svh, 70px);
-}
-.wide { width: min(86vw, max(var(--w), 620px)) }
 
 .snip-head {
   display: flex;
@@ -552,14 +592,15 @@ body.folding { user-select: none }
   background: rgb(9 13 19 / .66);
   -webkit-backdrop-filter: blur(22px) saturate(1.3);
           backdrop-filter: blur(22px) saturate(1.3);
-  overflow-x: auto;
+  max-height: min(72svh, 760px);
+  overflow: auto;
 }
 .snip code {
   display: block;
   padding: 16px 18px;
   font-family: "DM Mono", ui-monospace, monospace;
-  font-size: 11.5px;
-  line-height: 1.62;
+  font-size: 10.8px;
+  line-height: 1.66;
   color: #ccd5e3;
   white-space: pre;
 }
@@ -662,6 +703,9 @@ body.folding { user-select: none }
       <p>The blur belongs to the hinge, not the display: each half is tilted <b>φ = 90° − θ/2</b> out of the focal plane, so defocus follows <b>sin(φ)</b> and reaches zero flat. Six masked <code>backdrop-filter</code> veils carry the ramp.</p>
     </header>
 
+    <div class="cols">
+      <div class="col">
+
     <div class="hero">
       <div class="device" id="device">
         <div class="book">
@@ -700,23 +744,24 @@ body.folding { user-select: none }
       <button type="button" class="ghost" id="toggle">Open flat</button>
     </form>
 
-  </div>
-</main>
+      </div>
 
-<section class="sheet">
-  <div class="wide">
-    <div class="snip-head">
-      <span>CSS for this state</span>
-      <button type="button" class="ghost" id="copy">Copy</button>
+      <aside class="col">
+        <div class="snip-head">
+          <span>CSS for this state</span>
+          <button type="button" class="ghost" id="copy">Copy</button>
+        </div>
+        <pre class="snip"><code id="snip"></code></pre>
+      </aside>
     </div>
-    <pre class="snip"><code id="snip"></code></pre>
 
     <footer class="foot">
-      <span>Pawel Mikolajek · <a href="https://humanmade.com" target="_blank" rel="noopener">humanmade.com</a></span>
+      <span>Pawe&#322; Miko&#322;ajek · <a href="https://humanmade.com" target="_blank" rel="noopener">humanmade.com</a></span>
       <span>Photograph by George Cox</span>
     </footer>
+
   </div>
-</section>
+</main>
 
 <script>
 const stage = document.querySelector('.stage');
@@ -772,6 +817,7 @@ function paint() {
 
   stage.style.setProperty('--hinge', deg + 'deg');
   stage.style.setProperty('--spread', s);
+  stage.classList.toggle('flat', d < .004);   // sub-pixel: nothing to paint
   hinge.style.setProperty('--fill', ((deg - SHUT) / (180 - SHUT) * 100) + '%');
   spread.style.setProperty('--fill', ((s - .5) / .65 * 100) + '%');
   hingeOut.value = Math.round(deg) + '°';
